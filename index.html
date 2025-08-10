@@ -77,10 +77,10 @@
   <div id="title">Levipark21 - Línea Qubiq</div>
 
   <select id="modelSelector">
-    <option value="models/bichos.glb">QUBIQ</option>
-    <option value="models/coco.glb">COCODRILO</option>
-    <option value="models/koa.glb">KOALA</option>
-    <option value="models/pingu.glb">PINGU</option>
+    <option value="bichos.glb">QUBIQ</option>
+    <option value="coco.glb">COCODRILO</option>
+    <option value="koa.glb">KOALA</option>
+    <option value="pingu.glb">PINGU</option>
   </select>
 
   <div id="canvas-container">
@@ -92,7 +92,10 @@
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/controls/OrbitControls.js';
     import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/loaders/GLTFLoader.js';
 
+    const repoPath = '/Linea-Qubiq/models/'; // Prefijo de ruta en GitHub Pages
+
     const container = document.getElementById('canvas-container');
+    const selector = document.getElementById('modelSelector');
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -102,7 +105,6 @@
 
     // Scene y cámara
     const scene = new THREE.Scene();
-
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     camera.position.set(0, 1.5, 3);
 
@@ -124,7 +126,8 @@
 
     let currentModel = null;
 
-    function loadModel(path) {
+    function loadModel(filename) {
+      const path = repoPath + filename;
       if (currentModel) {
         scene.remove(currentModel);
         currentModel.traverse((child) => {
@@ -154,7 +157,6 @@
     }
 
     // Carga inicial
-    const selector = document.getElementById('modelSelector');
     loadModel(selector.value);
 
     selector.addEventListener('change', () => {
