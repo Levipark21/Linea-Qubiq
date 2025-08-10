@@ -49,7 +49,7 @@
       width: 100% !important;
       height: 100% !important;
     }
-    #ar-button {
+    #ar-button, #three-ar-button {
       position: absolute;
       bottom: 20px;
       left: 50%;
@@ -66,8 +66,11 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       user-select: none;
     }
-    #ar-button:hover {
+    #ar-button:hover, #three-ar-button:hover {
       background-color: #0055cc;
+    }
+    #three-ar-button {
+      display: none; /* Oculto inicialmente */
     }
   </style>
 
@@ -99,6 +102,7 @@
 
   <div id="canvas-container">
     <button id="ar-button">Ver en tu espacio</button>
+    <!-- Aquí se insertará el botón AR oficial de Three.js -->
   </div>
 
   <script type="module">
@@ -112,6 +116,11 @@
     const container = document.getElementById('canvas-container');
     const selector = document.getElementById('modelSelector');
     const arButton = document.getElementById('ar-button');
+
+    // Detectar iOS para usar .usdz y Quick Look
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -202,30 +211,40 @@
     }
     animate();
 
-    // ARButton de Three.js para iniciar sesión AR
+    // Botón AR oficial de Three.js (para Android/otros)
     const threeARButton = ARButton.createButton(renderer, {
       requiredFeatures: ['hit-test', 'dom-overlay'],
       domOverlay: { root: document.body },
     });
-    threeARButton.style.position = 'absolute';
-    threeARButton.style.bottom = '20px';
-    threeARButton.style.left = '50%';
-    threeARButton.style.transform = 'translateX(-50%)';
-    threeARButton.style.padding = '16px 32px';
-    threeARButton.style.fontSize = '20px';
-    threeARButton.style.fontWeight = 'bold';
-    threeARButton.style.backgroundColor = '#006eff';
-    threeARButton.style.color = 'white';
-    threeARButton.style.border = 'none';
-    threeARButton.style.borderRadius = '8px';
-    threeARButton.style.cursor = 'pointer';
-    threeARButton.style.boxShadow = '0 4px 10px rgba(0,0,0,0.2)';
-    threeARButton.style.userSelect = 'none';
-    threeARButton.id = 'ar-button';
+    threeARButton.id = 'three-ar-button';
+    container.appendChild(threeARButton);
 
-    // Remplazamos el botón original por el botón AR oficial de Three.js
-    container.replaceChild(threeARButton, arButton);
+    // Oculto por defecto, solo se muestra en Android / WebXR compatible
+    threeARButton.style.display = 'none';
 
+    // Si es iOS, usamos el botón propio que abre .usdz
+    // Si no, mostramos el botón AR oficial Three.js
+    if (isIOS()) {
+      arButton.style.display = 'block';
+      threeARButton.style.display = 'none';
+
+      arButton.addEventListener('click', () => {
+        const usdzPath = repoPath + selector.value.replace('.glb', '.usdz');
+        // Abrir modelo en Quick Look (AR iOS)
+        window.location.href = usdzPath;
+      });
+    } else {
+      arButton.style.display = 'none';
+      // Mostramos botón oficial y lo "clickamos" para empezar AR
+      threeARButton.style.display = 'block';
+
+      arButton.removeEventListener('click', () => {}); // Por si acaso
+
+      arButton.disabled = true;
+
+      // Opcional: puedes añadir aquí listener para eventos Three.js si quieres
+
+    }
   </script>
 
 </body>
