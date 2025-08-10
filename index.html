@@ -49,7 +49,6 @@
       width: 100% !important;
       height: 100% !important;
     }
-    /* Botón AR (solo diseño, no funcional en este ejemplo) */
     #ar-button {
       position: absolute;
       bottom: 20px;
@@ -92,7 +91,9 @@
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/controls/OrbitControls.js';
     import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/loaders/GLTFLoader.js';
 
-    const repoPath = '/Linea-Qubiq/models/'; // Prefijo de ruta en GitHub Pages
+    // Ajusta esta ruta según dónde tengas la carpeta 'models'
+    // Prueba con 'Linea-Qubiq/models/' o '/Linea-Qubiq/models/' si la carpeta está en root repo
+    const repoPath = 'Linea-Qubiq/models/'; 
 
     const container = document.getElementById('canvas-container');
     const selector = document.getElementById('modelSelector');
@@ -121,13 +122,15 @@
     directionalLight.position.set(5, 10, 7);
     scene.add(directionalLight);
 
-    // Carga de modelos
+    // Loader
     const loader = new GLTFLoader();
 
     let currentModel = null;
 
     function loadModel(filename) {
       const path = repoPath + filename;
+      console.log('Intentando cargar modelo:', path);
+
       if (currentModel) {
         scene.remove(currentModel);
         currentModel.traverse((child) => {
@@ -142,18 +145,28 @@
         });
         currentModel = null;
       }
-      loader.load(path, (gltf) => {
-        currentModel = gltf.scene;
-        scene.add(currentModel);
 
-        // Centrar modelo
-        const box = new THREE.Box3().setFromObject(currentModel);
-        const center = box.getCenter(new THREE.Vector3());
-        currentModel.position.sub(center);
+      loader.load(
+        path,
+        (gltf) => {
+          console.log('Modelo cargado:', filename);
+          currentModel = gltf.scene;
+          scene.add(currentModel);
 
-      }, undefined, (error) => {
-        console.error('Error cargando modelo:', error);
-      });
+          // Centrar modelo
+          const box = new THREE.Box3().setFromObject(currentModel);
+          const center = box.getCenter(new THREE.Vector3());
+          currentModel.position.sub(center);
+        },
+        (xhr) => {
+          if (xhr.lengthComputable) {
+            console.log(`Carga: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+          }
+        },
+        (error) => {
+          console.error('Error cargando modelo:', error);
+        }
+      );
     }
 
     // Carga inicial
@@ -170,6 +183,7 @@
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      console.log('Canvas size:', w, h);
     });
 
     // Animación
@@ -184,7 +198,11 @@
     arButton.addEventListener('click', () => {
       alert('Aquí puedes implementar la funcionalidad AR.');
     });
+
+    // Log inicial tamaño canvas
+    console.log('Canvas size:', container.clientWidth, container.clientHeight);
   </script>
 
 </body>
 </html>
+
