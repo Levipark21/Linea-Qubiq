@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Modelo 3D con Three.js</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background-color: #ffffff;
+      font-family: Arial, sans-serif;
+      display: flex; flex-direction: column;
+      align-items: center;
+    }
+    #title {
+      margin: 10px 0 0 0;
+      font-size: 20px;
+      font-weight: bold;
+      color: #222;
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 10px 20px;
+      border-radius: 6px;
+      text-align: center;
+      user-select: none;
+      width: 100%;
+      max-width: 800px;
+    }
+    #modelSelector {
+      margin: 10px 0;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background-color: rgba(255, 255, 255, 0.85);
+      max-width: 800px;
+      width: 100%;
+    }
+    #canvas-container {
+      flex: 1;
+      width: 100%;
+      max-width: 800px;
+      background-color: #ffffff;
+      border: none;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    /* Botón AR (solo diseño, no funcional en este ejemplo) */
+    #ar-button {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background-color: #006eff;
+      color: white;
+      padding: 16px 32px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      user-select: none;
+    }
+    #ar-button:hover {
+      background-color: #0055cc;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="title">Levipark21 - Línea Qubiq</div>
+
+  <select id="modelSelector">
+    <option value="models/bichos.glb">QUBIQ</option>
+    <option value="models/coco.glb">COCODRILO</option>
+    <option value="models/koa.glb">KOALA</option>
+    <option value="models/pingu.glb">PINGU</option>
+  </select>
+
+  <div id="canvas-container">
+    <button id="ar-button">Ver en tu espacio</button>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.module.js';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/controls/OrbitControls.js';
+    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/loaders/GLTFLoader.js';
+
+    const container = document.getElementById('canvas-container');
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setClearColor(0xffffff, 1);
+    container.appendChild(renderer.domElement);
+
+    // Scene y cámara
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(0, 1.5, 3);
+
+    // Controles
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, 0);
+    controls.update();
+
+    // Luz
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+
+    // Carga de modelos
+    const loader = new GLTFLoader();
+
+    let currentModel = null;
+
+    function loadModel(path) {
+      if (currentModel) {
+        scene.remove(currentModel);
+        currentModel.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => mat.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+        currentModel = null;
+      }
+      loader.load(path, (gltf) => {
+        currentModel = gltf.scene;
+        scene.add(currentModel);
+
+        // Centrar modelo
+        const box = new THREE.Box3().setFromObject(currentModel);
+        const center = box.getCenter(new THREE.Vector3());
+        currentModel.position.sub(center);
+
+      }, undefined, (error) => {
+        console.error('Error cargando modelo:', error);
+      });
+    }
+
+    // Carga inicial
+    const selector = document.getElementById('modelSelector');
+    loadModel(selector.value);
+
+    selector.addEventListener('change', () => {
+      loadModel(selector.value);
+    });
+
+    // Resize
+    window.addEventListener('resize', () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+
+    // Animación
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Botón AR (solo placeholder)
+    const arButton = document.getElementById('ar-button');
+    arButton.addEventListener('click', () => {
+      alert('Aquí puedes implementar la funcionalidad AR.');
+    });
+  </script>
+
+</body>
+</html>
