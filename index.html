@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Modelo 3D con Three.js y AR</title>
+  <title>Modelo 3D con Three.js</title>
   <style>
     html, body {
       margin: 0; padding: 0;
@@ -26,7 +26,6 @@
       width: 100%;
       max-width: 800px;
       z-index: 10;
-      position: relative;
     }
     #modelSelector {
       margin: 10px 0;
@@ -38,7 +37,6 @@
       max-width: 800px;
       width: 100%;
       z-index: 10;
-      position: relative;
     }
     #canvas-container {
       flex: 1;
@@ -47,33 +45,34 @@
       background-color: #ffffff;
       border: none;
       position: relative;
-      z-index: 1;
+      flex-grow: 1;
+      height: 100%;
     }
     canvas {
       display: block;
       width: 100% !important;
       height: 100% !important;
+      touch-action: none; /* para mejorar controles táctiles */
     }
-    /* Ajustamos el botón AR para que se muestre bien */
-    .ar-button {
-      position: fixed !important;
-      bottom: 20px !important;
-      left: 50% !important;
-      transform: translateX(-50%) !important;
-      z-index: 20 !important;
-      background-color: #006eff !important;
-      color: white !important;
-      padding: 16px 32px !important;
-      font-size: 20px !important;
-      font-weight: bold !important;
-      border: none !important;
-      border-radius: 8px !important;
-      cursor: pointer !important;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-      user-select: none !important;
+    #ar-button {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background-color: #006eff;
+      color: white;
+      padding: 16px 32px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      user-select: none;
     }
-    .ar-button:hover {
-      background-color: #0055cc !important;
+    #ar-button:hover {
+      background-color: #0055cc;
     }
   </style>
 </head>
@@ -88,32 +87,34 @@
     <option value="pingu.glb">PINGU</option>
   </select>
 
-  <div id="canvas-container"></div>
+  <div id="canvas-container">
+    <button id="ar-button">Ver en tu espacio</button>
+  </div>
 
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.module.js';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/controls/OrbitControls.js';
     import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/loaders/GLTFLoader.js';
-    import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.153.0/examples/jsm/webxr/ARButton.js';
 
-    const repoPath = './';
+    const repoPath = './'; // modelos en la raíz
 
     const container = document.getElementById('canvas-container');
     const selector = document.getElementById('modelSelector');
+    const arButton = document.getElementById('ar-button');
 
-    // Renderer con WebXR habilitado
+    // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setClearColor(0xffffff, 1);
     renderer.xr.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // Escena y cámara
+    // Scene y cámara
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.set(0, 1.5, 10);
+    camera.position.set(0, 1.5, 5); // cámara un poco más atrás
 
-    // Controles para vista normal (no AR)
+    // Controles Orbit
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
     controls.update();
@@ -121,14 +122,15 @@
     // Luces
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
+
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 7);
     scene.add(directionalLight);
 
+    // Loader
     const loader = new GLTFLoader();
 
     let currentModel = null;
-    let modelPlaced = false; // Para controlar si ya se colocó el modelo en AR
 
     function loadModel(filename) {
       const path = repoPath + filename;
@@ -154,17 +156,12 @@
         (gltf) => {
           console.log('Modelo cargado:', filename);
           currentModel = gltf.scene;
+          scene.add(currentModel);
 
-          // Para vista normal lo añadimos directo
-          if (!renderer.xr.isPresenting) {
-            scene.add(currentModel);
-
-            // Centrar modelo
-            const box = new THREE.Box3().setFromObject(currentModel);
-            const center = box.getCenter(new THREE.Vector3());
-            currentModel.position.sub(center);
-          }
-          modelPlaced = false; // Reiniciamos para AR
+          // Centrar modelo
+          const box = new THREE.Box3().setFromObject(currentModel);
+          const center = box.getCenter(new THREE.Vector3());
+          currentModel.position.sub(center);
         },
         (xhr) => {
           if (xhr.lengthComputable) {
@@ -173,6 +170,7 @@
         },
         (error) => {
           console.error('Error cargando modelo:', error);
+          alert('Error al cargar el modelo: ' + filename);
         }
       );
     }
@@ -183,7 +181,6 @@
       loadModel(selector.value);
     });
 
-    // Resize
     window.addEventListener('resize', () => {
       const w = container.clientWidth;
       const h = container.clientHeight;
@@ -193,85 +190,38 @@
       console.log('Canvas size:', w, h);
     });
 
-    // Botón AR oficial
-    const arButton = ARButton.createButton(renderer, {
-      requiredFeatures: ['hit-test'],
-      optionalFeatures: ['dom-overlay'],
-      domOverlay: { root: document.body }
-    });
-    arButton.classList.add('ar-button');
-    document.body.appendChild(arButton);
-
-    // Reticle para indicar superficie detectada
-    const reticle = new THREE.Mesh(
-      new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-    );
-    reticle.matrixAutoUpdate = false;
-    reticle.visible = false;
-    scene.add(reticle);
-
-    // Variables para hit-test
-    let hitTestSource = null;
-    let hitTestSourceRequested = false;
-
-    // Controlador para evento select
-    const controller = renderer.xr.getController(0);
-    controller.addEventListener('select', () => {
-      if (reticle.visible && currentModel && !modelPlaced) {
-        currentModel.position.setFromMatrixPosition(reticle.matrix);
-        scene.add(currentModel);
-        modelPlaced = true;  // Modelo colocado, no mover más
-        console.log('Modelo colocado en AR');
-      }
-    });
-    scene.add(controller);
-
-    renderer.xr.addEventListener('sessionstart', () => {
-      const session = renderer.xr.getSession();
-
-      session.requestReferenceSpace('viewer').then((referenceSpace) => {
-        session.requestHitTestSource({ space: referenceSpace }).then((source) => {
-          hitTestSource = source;
-        });
+    function animate() {
+      renderer.setAnimationLoop(() => {
+        controls.update();
+        renderer.render(scene, camera);
       });
-
-      session.addEventListener('end', () => {
-        hitTestSourceRequested = false;
-        hitTestSource = null;
-        reticle.visible = false;
-        modelPlaced = false;
-      });
-
-      hitTestSourceRequested = true;
-    });
-
-    function animate(timestamp, frame) {
-      if (frame) {
-        const referenceSpace = renderer.xr.getReferenceSpace();
-        const session = renderer.xr.getSession();
-
-        if (hitTestSource) {
-          const hitTestResults = frame.getHitTestResults(hitTestSource);
-
-          if (hitTestResults.length > 0) {
-            const hit = hitTestResults[0];
-            const pose = hit.getPose(referenceSpace);
-            reticle.visible = true;
-            reticle.matrix.fromArray(pose.transform.matrix);
-          } else {
-            reticle.visible = false;
-          }
-        }
-      }
-
-      renderer.render(scene, camera);
     }
+    animate();
 
-    renderer.setAnimationLoop(animate);
+    // AR Button funcional básico con WebXR para iOS y Android (Chrome)
+    arButton.addEventListener('click', async () => {
+      if (navigator.xr) {
+        try {
+          const isARSupported = await navigator.xr.isSessionSupported('immersive-ar');
+          if (isARSupported) {
+            const session = await navigator.xr.requestSession('immersive-ar', {
+              requiredFeatures: ['local-floor']
+            });
+            renderer.xr.setSession(session);
+            console.log('Sesión AR iniciada');
+          } else {
+            alert('AR no soportado en este dispositivo/navegador.');
+          }
+        } catch (e) {
+          alert('Error iniciando AR: ' + e.message);
+        }
+      } else {
+        alert('WebXR no está disponible en este navegador.');
+      }
+    });
+
   </script>
 
 </body>
 </html>
-
 
