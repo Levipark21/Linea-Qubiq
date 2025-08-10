@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Modelo 3D con Three.js</title>
+  <title>Modelo 3D con Three.js y AR iOS</title>
   <style>
     html, body {
       margin: 0; padding: 0;
@@ -49,7 +49,7 @@
       width: 100% !important;
       height: 100% !important;
     }
-    #ar-button, #three-ar-button {
+    #ar-button {
       position: absolute;
       bottom: 20px;
       left: 50%;
@@ -66,15 +66,11 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
       user-select: none;
     }
-    #ar-button:hover, #three-ar-button:hover {
+    #ar-button:hover {
       background-color: #0055cc;
-    }
-    #three-ar-button {
-      display: none; /* Oculto inicialmente */
     }
   </style>
 
-  <!-- ES Module Shims y import map para resolver 'three' -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
 
   <script type="importmap">
@@ -102,7 +98,6 @@
 
   <div id="canvas-container">
     <button id="ar-button">Ver en tu espacio</button>
-    <!-- Aquí se insertará el botón AR oficial de Three.js -->
   </div>
 
   <script type="module">
@@ -111,16 +106,11 @@
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
     import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 
-    const repoPath = './';
+    const repoPath = './'; // Ruta local para glb
 
     const container = document.getElementById('canvas-container');
     const selector = document.getElementById('modelSelector');
     const arButton = document.getElementById('ar-button');
-
-    // Detectar iOS para usar .usdz y Quick Look
-    function isIOS() {
-      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    }
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -149,8 +139,6 @@
 
     function loadModel(filename) {
       const path = repoPath + filename;
-      console.log('Intentando cargar modelo:', path);
-
       if (currentModel) {
         scene.remove(currentModel);
         currentModel.traverse((child) => {
@@ -169,22 +157,16 @@
       loader.load(
         path,
         (gltf) => {
-          console.log('Modelo cargado:', filename);
           currentModel = gltf.scene;
           scene.add(currentModel);
-
           const box = new THREE.Box3().setFromObject(currentModel);
           const center = box.getCenter(new THREE.Vector3());
           currentModel.position.sub(center);
         },
-        (xhr) => {
-          if (xhr.lengthComputable) {
-            console.log(`Carga: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
-          }
-        },
+        undefined,
         (error) => {
-          console.error('Error cargando modelo:', error);
           alert('Error al cargar el modelo: ' + filename);
+          console.error(error);
         }
       );
     }
@@ -211,41 +193,71 @@
     }
     animate();
 
-    // Botón AR oficial de Three.js (para Android/otros)
-    const threeARButton = ARButton.createButton(renderer, {
-      requiredFeatures: ['hit-test', 'dom-overlay'],
-      domOverlay: { root: document.body },
-    });
-    threeARButton.id = 'three-ar-button';
-    container.appendChild(threeARButton);
-
-    // Oculto por defecto, solo se muestra en Android / WebXR compatible
-    threeARButton.style.display = 'none';
-
-    // Si es iOS, usamos el botón propio que abre .usdz
-    // Si no, mostramos el botón AR oficial Three.js
-    if (isIOS()) {
-      arButton.style.display = 'block';
-      threeARButton.style.display = 'none';
-
-      arButton.addEventListener('click', () => {
-        const usdzPath = repoPath + selector.value.replace('.glb', '.usdz');
-        // Abrir modelo en Quick Look (AR iOS)
-        window.location.href = usdzPath;
-      });
-    } else {
-      arButton.style.display = 'none';
-      // Mostramos botón oficial y lo "clickamos" para empezar AR
-      threeARButton.style.display = 'block';
-
-      arButton.removeEventListener('click', () => {}); // Por si acaso
-
-      arButton.disabled = true;
-
-      // Opcional: puedes añadir aquí listener para eventos Three.js si quieres
-
+    // Detección básica de iOS para usar AR Quick Look
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     }
+
+    // URL base de los archivos .usdz en releases
+    const usdzBaseURL = 'https://github.com/Levipark21/Linea-Qubiq/releases/download/v1.0-usdz/';
+
+    // Mapeo sencillo para saber qué .usdz usar según el glb seleccionado
+    const usdzMap = {
+      'bichos.glb': 'bichos.usdz',
+      'coco.glb': 'coco.usdz',
+      'koa.glb': 'koa.usdz',
+      'pingu.glb': 'pingu.usdz',
+    };
+
+    // Actualizamos el botón para iOS y otros
+    function setupARButton() {
+      if (isIOS()) {
+        // En iOS abrimos Quick Look con el archivo .usdz
+        arButton.style.display = 'inline-block';
+        arButton.onclick = () => {
+          const selectedGLB = selector.value;
+          const usdzFile = usdzMap[selectedGLB];
+          if (!usdzFile) {
+            alert('No hay archivo USDZ disponible para este modelo.');
+            return;
+          }
+          const url = usdzBaseURL + usdzFile;
+          // Abrimos Quick Look (esto lanza el visor AR nativo en iOS)
+          window.location.href = url;
+        };
+      } else if (navigator.xr) {
+        // Si hay WebXR, creamos botón oficial Three.js ARButton
+        const threeARButton = ARButton.createButton(renderer, {
+          requiredFeatures: ['hit-test', 'dom-overlay'],
+          domOverlay: { root: document.body }
+        });
+        threeARButton.style.position = 'absolute';
+        threeARButton.style.bottom = '20px';
+        threeARButton.style.left = '50%';
+        threeARButton.style.transform = 'translateX(-50%)';
+        threeARButton.style.padding = '16px 32px';
+        threeARButton.style.fontSize = '20px';
+        threeARButton.style.fontWeight = 'bold';
+        threeARButton.style.backgroundColor = '#006eff';
+        threeARButton.style.color = 'white';
+        threeARButton.style.border = 'none';
+        threeARButton.style.borderRadius = '8px';
+        threeARButton.style.cursor = 'pointer';
+        threeARButton.style.boxShadow = '0 4px 10px rgba(0,0,0,0.2)';
+        threeARButton.style.userSelect = 'none';
+
+        // Reemplaza el botón original por este
+        container.replaceChild(threeARButton, arButton);
+      } else {
+        // No es iOS ni compatible WebXR, ocultamos el botón
+        arButton.style.display = 'none';
+      }
+    }
+
+    setupARButton();
+
   </script>
 
 </body>
 </html>
+
