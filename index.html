@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Modelo 3D con Three.js</title>
+  <title>Modelo 3D con Three.js y AR</title>
   <style>
     html, body {
       margin: 0; padding: 0;
@@ -49,10 +49,39 @@
       width: 100% !important;
       height: 100% !important;
     }
+    #ar-container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      justify-content: center;
+      margin: 10px 0;
+    }
+    model-viewer {
+      display: none; /* Oculto, solo se usa para lanzar el AR */
+    }
+    #ar-hint {
+      font-size: 1em;
+      color: #444;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    #ar-button {
+      background: #222;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #ar-button:hover {
+      background: #555;
+    }
   </style>
 
+  <!-- Three.js y dependencias -->
   <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-
   <script type="importmap">
   {
     "imports": {
@@ -63,29 +92,55 @@
   }
   </script>
 
+  <!-- Model Viewer para AR -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
 <body>
 
   <div id="title">Levipark21 - Línea Qubiq</div>
 
   <select id="modelSelector">
-    <option value="bichos.glb">QUBIQ</option>
-    <option value="coco.glb">COCODRILO</option>
-    <option value="koa.glb">KOALA</option>
-    <option value="pingu.glb">PINGU</option>
+    <option value="bichos">QUBIQ</option>
+    <option value="coco">COCODRILO</option>
+    <option value="koa">KOALA</option>
+    <option value="pingu">PINGU</option>
   </select>
 
+  <!-- Contenedor Three.js -->
   <div id="canvas-container"></div>
+
+  <!-- Botón AR y Model Viewer oculto -->
+  <div id="ar-container">
+    <button id="ar-button">Ver en AR</button>
+  </div>
+  <div id="ar-hint">Toca el botón para abrir el modelo en AR en tu móvil (Android o iOS)</div>
+  <model-viewer id="hidden-ar-viewer"
+    ar
+    ar-modes="scene-viewer quick-look webxr"
+    camera-controls
+    style="width:0;height:0;display:none;">
+  </model-viewer>
 
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-    const repoPath = './'; // Ruta local para glb
+    const repoPath = './'; // Ruta local para los modelos
     const container = document.getElementById('canvas-container');
     const selector = document.getElementById('modelSelector');
+    const arButton = document.getElementById('ar-button');
+    const arViewer = document.getElementById('hidden-ar-viewer');
 
+    // Nombres de archivo para cada modelo (sin extensión)
+    const modelos = {
+      bichos: { glb: 'bichos.glb', usdz: 'bichos.usdz' },
+      coco:   { glb: 'coco.glb',   usdz: 'coco.usdz'   },
+      koa:    { glb: 'koa.glb',    usdz: 'koa.usdz'    },
+      pingu:  { glb: 'pingu.glb',  usdz: 'pingu.usdz'  }
+    };
+
+    // THREE.js setup
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setClearColor(0xffffff, 1);
@@ -101,7 +156,6 @@
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
-
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 7);
     scene.add(directionalLight);
@@ -125,7 +179,6 @@
         });
         currentModel = null;
       }
-
       loader.load(
         path,
         (gltf) => {
@@ -143,11 +196,37 @@
       );
     }
 
-    loadModel(selector.value);
+    // Inicializa el modelo 3D y AR
+    function updateModel() {
+      const key = selector.value;
+      loadModel(modelos[key].glb);
 
-    selector.addEventListener('change', () => {
-      loadModel(selector.value);
+      // Actualiza las rutas del model-viewer oculto
+      arViewer.setAttribute('src', modelos[key].glb);
+      arViewer.setAttribute('ios-src', modelos[key].usdz);
+      arViewer.setAttribute('alt', key);
+
+      // Opcional: podrías comprobar si existe el .usdz y desactivar el botón si no está
+    }
+
+    selector.addEventListener('change', updateModel);
+
+    // Lanza el AR de model-viewer al pulsar el botón
+    arButton.addEventListener('click', () => {
+      // Llama al método showAR() de model-viewer oculto
+      if (arViewer.activateAR) {
+        // Algunos navegadores soportan activateAR (beta), otros showAR
+        arViewer.activateAR();
+      } else if (arViewer.showAR) {
+        arViewer.showAR();
+      } else {
+        // Fallback: simula click en el botón AR interno
+        arViewer.dispatchEvent(new CustomEvent('ar-button-click'));
+      }
     });
+
+    // Inicializa al cargar la página
+    updateModel();
 
     window.addEventListener('resize', () => {
       const w = container.clientWidth;
@@ -165,7 +244,5 @@
     }
     animate();
   </script>
-
 </body>
 </html>
-
